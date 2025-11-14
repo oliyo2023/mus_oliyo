@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 // ignore: unused_import
 import '../models/song.dart';
+import '../services/user_preferences_service.dart';
 import '../widgets/player_bar.dart';
 import '../widgets/sections/recent_section.dart';
 import '../widgets/sections/popular_section.dart';
@@ -83,14 +85,6 @@ class HomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '欢迎回来',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
             const RecentSection(),
             const SizedBox(height: 32),
             const PopularSection(),
@@ -298,15 +292,25 @@ class ProfilePage extends StatelessWidget {
                     title: const Text('设置'),
                     onTap: () {},
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.dark_mode),
-                    title: const Text('深色模式'),
-                    trailing: Switch(
-                      value: Theme.of(context).brightness == Brightness.dark,
-                      onChanged: (value) {
-                        // 主题切换逻辑
-                      },
-                    ),
+                  Selector<UserPreferencesService, ThemeMode>(
+                    selector: (context, service) => service.themeMode,
+                    builder: (context, themeMode, child) {
+                      final preferencesService = context.read<UserPreferencesService>();
+                      final isDark = themeMode == ThemeMode.dark ||
+                          (themeMode == ThemeMode.system &&
+                           MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+                      return ListTile(
+                        leading: const Icon(Icons.dark_mode),
+                        title: const Text('深色模式'),
+                        trailing: Switch(
+                          value: isDark,
+                          onChanged: (value) {
+                            preferencesService.toggleTheme();
+                          },
+                        ),
+                      );
+                    },
                   ),
                   ListTile(
                     leading: const Icon(Icons.help_outline),
@@ -407,7 +411,7 @@ class PlaylistCard extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.2),
+            color: Colors.blue.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Icon(Icons.queue_music),

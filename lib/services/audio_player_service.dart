@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/song.dart';
+import 'play_history_service.dart';
 
 enum PlayerState { stopped, playing, paused, loading, error }
 
@@ -12,6 +13,8 @@ class AudioPlayerService extends ChangeNotifier {
   Duration _position = Duration.zero;
   bool _isShuffle = false;
   bool _isRepeat = false;
+
+  PlayHistoryService? _historyService;
 
   // 模拟播放器服务，因为没有网络连接下载依赖
   // 在实际项目中，这里会使用 just_audio 包
@@ -27,6 +30,11 @@ class AudioPlayerService extends ChangeNotifier {
   bool get isPlaying => _playerState == PlayerState.playing;
   bool get isPaused => _playerState == PlayerState.paused;
   bool get isLoading => _playerState == PlayerState.loading;
+
+  /// 设置播放历史服务
+  void setHistoryService(PlayHistoryService service) {
+    _historyService = service;
+  }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
     _playlist.clear();
@@ -117,6 +125,10 @@ class AudioPlayerService extends ChangeNotifier {
       _currentSong = song;
       _duration = Duration(seconds: song.duration ?? 0);
       _position = Duration.zero;
+
+      // 记录到播放历史
+      _historyService?.addToHistory(song);
+
       await play();
     }
   }

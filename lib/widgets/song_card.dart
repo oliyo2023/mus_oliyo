@@ -32,7 +32,7 @@ class SongCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(12),
                 ),
-                color: Colors.grey.withOpacity(0.2),
+                color: Colors.grey.withValues(alpha: 0.2),
               ),
               child: song.coverArt != null
                   ? ClipRRect(
@@ -77,7 +77,7 @@ class SongCard extends StatelessWidget {
                   song.artist,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.withOpacity(0.7),
+                    color: Colors.grey.withValues(alpha: 0.7),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

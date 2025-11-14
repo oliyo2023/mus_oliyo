@@ -7,8 +7,16 @@ class PlayerControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AudioPlayerService>(
-      builder: (context, playerService, child) {
+    return Selector<AudioPlayerService, _PlayerControlsState>(
+      selector: (context, service) => _PlayerControlsState(
+        isShuffle: service.isShuffle,
+        isRepeat: service.isRepeat,
+        isPlaying: service.isPlaying,
+        isLoading: service.isLoading,
+      ),
+      builder: (context, state, child) {
+        final playerService = context.read<AudioPlayerService>();
+
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -17,7 +25,7 @@ class PlayerControls extends StatelessWidget {
               onPressed: playerService.toggleShuffle,
               icon: Icon(
                 Icons.shuffle,
-                color: playerService.isShuffle
+                color: state.isShuffle
                     ? const Color(0xFF1DB954)
                     : Colors.grey[400],
                 size: 28,
@@ -54,10 +62,10 @@ class PlayerControls extends StatelessWidget {
                 ],
               ),
               child: IconButton(
-                onPressed: playerService.isPlaying
+                onPressed: state.isPlaying
                     ? playerService.pause
                     : playerService.play,
-                icon: playerService.isLoading
+                icon: state.isLoading
                     ? const SizedBox(
                         width: 32,
                         height: 32,
@@ -67,7 +75,7 @@ class PlayerControls extends StatelessWidget {
                         ),
                       )
                     : Icon(
-                        playerService.isPlaying
+                        state.isPlaying
                             ? Icons.pause
                             : Icons.play_arrow,
                         color: Colors.white,
@@ -94,8 +102,8 @@ class PlayerControls extends StatelessWidget {
             IconButton(
               onPressed: playerService.toggleRepeat,
               icon: Icon(
-                playerService.isRepeat ? Icons.repeat_one : Icons.repeat,
-                color: playerService.isRepeat
+                state.isRepeat ? Icons.repeat_one : Icons.repeat,
+                color: state.isRepeat
                     ? const Color(0xFF1DB954)
                     : Colors.grey[400],
                 size: 28,
@@ -106,4 +114,32 @@ class PlayerControls extends StatelessWidget {
       },
     );
   }
+}
+
+/// 用于 Selector 的状态类，包含播放控制需要的所有状态
+class _PlayerControlsState {
+  final bool isShuffle;
+  final bool isRepeat;
+  final bool isPlaying;
+  final bool isLoading;
+
+  const _PlayerControlsState({
+    required this.isShuffle,
+    required this.isRepeat,
+    required this.isPlaying,
+    required this.isLoading,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _PlayerControlsState &&
+          runtimeType == other.runtimeType &&
+          isShuffle == other.isShuffle &&
+          isRepeat == other.isRepeat &&
+          isPlaying == other.isPlaying &&
+          isLoading == other.isLoading;
+
+  @override
+  int get hashCode => Object.hash(isShuffle, isRepeat, isPlaying, isLoading);
 }
