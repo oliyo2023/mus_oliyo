@@ -1,13 +1,19 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/song.dart';
 import 'play_history_service.dart';
+import 'music_cache_service.dart';
 
+/// 播放器状态枚举
 enum PlayerState { stopped, playing, paused, loading, error, buffering }
 
-class AudioPlayerService extends ChangeNotifier {
+/// 集成缓存功能的音频播放器服务
+class CachedAudioPlayerService extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final MusicCacheService _cacheService;
+  
   PlayerState _playerState = PlayerState.stopped;
   Song? _currentSong;
   int _currentIndex = 0;
@@ -17,6 +23,8 @@ class AudioPlayerService extends ChangeNotifier {
   bool _isShuffle = false;
   bool _isRepeat = false;
   double _bufferedProgress = 0.0;
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
 
   PlayHistoryService? _historyService;
 
@@ -32,9 +40,12 @@ class AudioPlayerService extends ChangeNotifier {
   bool get isPaused => _playerState == PlayerState.paused;
   bool get isLoading => _playerState == PlayerState.loading;
   bool get isBuffering => _playerState == PlayerState.buffering;
+  bool get isDownloading => _isDownloading;
   double get bufferedProgress => _bufferedProgress;
+  double get downloadProgress => _downloadProgress;
+  MusicCacheService get cacheService => _cacheService;
 
-  AudioPlayerService() {
+  CachedAudioPlayerService(this._cacheService) {
     _initAudioPlayer();
   }
 
@@ -46,16 +57,10 @@ class AudioPlayerService extends ChangeNotifier {
       await session.configure(const AudioSessionConfiguration.music());
 
       // 监听播放器状态变化
-      _audioPlayer.playerStateStream.listen((state) {
-        // 处理 just_audio 的 PlayerState
-        debugPrint('Player state changed: $state');
-      });
       _audioPlayer.positionStream.listen(_onPositionChanged);
       _audioPlayer.durationStream.listen(_onDurationChanged);
       _audioPlayer.bufferedPositionStream.listen(_onBufferedPositionChanged);
       _audioPlayer.playingStream.listen(_onPlayingChanged);
-      
-      // 监听播放完成
       _audioPlayer.processingStateStream.listen(_onProcessingStateChanged);
     } catch (e) {
       debugPrint('初始化音频播放器失败: $e');
@@ -86,7 +91,7 @@ class AudioPlayerService extends ChangeNotifier {
       _playerState = PlayerState.loading;
       notifyListeners();
 
-      // 设置音频源
+      // 设置音频源（优先使用缓存）
       await _setAudioSource(_currentSong!);
       
       // 开始播放
@@ -188,17 +193,65 @@ class AudioPlayerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 设置音频源
+  /// 预下载歌曲到缓存
+  Future<void> preloadSong(Song song) async {
+    if (_cacheService.isCached(song.id)) {
+      debugPrint('歌曲已缓存，无需预下载: ${song.title}');
+      return;
+    }
+
+    _isDownloading = true;
+    _downloadProgress = 0.0;
+    notifyListeners();
+
+    try {
+      // 模拟下载进度
+      for (int i = 0; i <= 100; i += 10) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        _downloadProgress = i / 100;
+        notifyListeners();
+      }
+
+      // 实际下载
+      final cachedPath = await _cacheService.downloadAndCache(song);
+      
+      if (cachedPath != null) {
+        debugPrint('预下载成功: ${song.title}');
+      } else {
+        debugPrint('预下载失败: ${song.title}');
+      }
+    } catch (e) {
+      debugPrint('预下载失败: $e');
+    } finally {
+      _isDownloading = false;
+      _downloadProgress = 0.0;
+      notifyListeners();
+    }
+  }
+
+  /// 设置音频源（优先使用缓存）
   Future<void> _setAudioSource(Song song) async {
     try {
       AudioSource audioSource;
       
-      if (song.isLocal) {
+      // 检查是否有本地缓存
+      final cachedPath = _cacheService.getCachedFilePath(song.id);
+      
+      if (cachedPath != null && File(cachedPath).existsSync()) {
+        // 使用缓存文件
+        debugPrint('使用缓存播放: ${song.title}');
+        audioSource = AudioSource.file(cachedPath);
+      } else if (song.isLocal) {
         // 本地音频文件
+        debugPrint('播放本地文件: ${song.title}');
         audioSource = AudioSource.file(song.url);
       } else {
-        // 网络音频文件，支持缓存
+        // 网络音频文件
+        debugPrint('在线播放: ${song.title}');
         audioSource = AudioSource.uri(Uri.parse(song.url));
+        
+        // 后台缓存
+        _cacheInBackground(song);
       }
 
       await _audioPlayer.setAudioSource(audioSource);
@@ -208,10 +261,17 @@ class AudioPlayerService extends ChangeNotifier {
     }
   }
 
-  /// 播放器状态变化监听
-  void _onPlayerStateChanged(PlayerState state) {
-    // just_audio 的 PlayerState 与我们的 PlayerState 不同
-    // 通过 processingState 和 playing 来判断实际状态
+  /// 后台缓存歌曲
+  Future<void> _cacheInBackground(Song song) async {
+    try {
+      // 避免重复下载
+      if (_cacheService.isCached(song.id)) return;
+      
+      debugPrint('后台缓存: ${song.title}');
+      await _cacheService.downloadAndCache(song);
+    } catch (e) {
+      debugPrint('后台缓存失败: $e');
+    }
   }
 
   /// 播放位置变化监听
@@ -282,7 +342,7 @@ class AudioPlayerService extends ChangeNotifier {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 
   @override
