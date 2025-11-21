@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">mus.oliyo.com</domain>
+        <domain includeSubdomains="true">cors-anywhere.herokuapp.com</domain>
+        <domain includeSubdomains="true">cors-proxy.fringe.zone</domain>
+        <domain includeSubdomains="true">fs.youthandroid2.kugou.com</domain>
+        <domain includeSubdomains="true">kugou.com</domain>
+        <domain includeSubdomains="true">*.kugou.com</domain>
+        <domain includeSubdomains="true">*.miguvideo.com</domain>
+        <domain includeSubdomains="true">miguvideo.com</domain>
+    </domain-config>
+    <!-- 开发环境：信任所有证书（仅用于测试） -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

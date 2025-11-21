@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/new_songs_screen.dart';
 import 'services/audio_player_service.dart';
+import 'services/music_api_service.dart';
 import 'services/play_history_service.dart';
 import 'services/user_preferences_service.dart';
 import 'theme/app_theme.dart';
@@ -13,10 +16,12 @@ void main() async {
   final playHistoryService = PlayHistoryService();
   final userPreferencesService = UserPreferencesService();
   final audioPlayerService = AudioPlayerService();
+  final musicApiService = MusicApiService();
 
   await Future.wait([
     playHistoryService.init(),
     userPreferencesService.init(),
+    musicApiService.init(),
   ]);
 
   // 连接服务
@@ -28,6 +33,7 @@ void main() async {
         ChangeNotifierProvider.value(value: audioPlayerService),
         ChangeNotifierProvider.value(value: playHistoryService),
         ChangeNotifierProvider.value(value: userPreferencesService),
+        ChangeNotifierProvider.value(value: musicApiService),
       ],
       child: const MusicApp(),
     ),
@@ -47,8 +53,13 @@ class MusicApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
-          home: const HomeScreen(),
+          home: const HomeScreen(), // 默认显示首页
           debugShowCheckedModeBanner: false,
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/home': (context) => const HomeScreen(),
+            '/new-songs': (context) => const NewSongsScreen(),
+          },
         );
       },
     );

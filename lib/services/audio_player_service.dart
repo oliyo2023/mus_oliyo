@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/song.dart';
 import 'play_history_service.dart';
+import 'music_api_service.dart';
 
 enum PlayerState { stopped, playing, paused, loading, error, buffering }
 
@@ -54,7 +55,7 @@ class AudioPlayerService extends ChangeNotifier {
       _audioPlayer.durationStream.listen(_onDurationChanged);
       _audioPlayer.bufferedPositionStream.listen(_onBufferedPositionChanged);
       _audioPlayer.playingStream.listen(_onPlayingChanged);
-      
+
       // 监听播放完成
       _audioPlayer.processingStateStream.listen(_onProcessingStateChanged);
     } catch (e) {
@@ -88,13 +89,16 @@ class AudioPlayerService extends ChangeNotifier {
 
       // 设置音频源
       await _setAudioSource(_currentSong!);
-      
+
       // 开始播放
       await _audioPlayer.play();
     } catch (e) {
       debugPrint('播放失败: $e');
       _playerState = PlayerState.error;
       notifyListeners();
+
+      // 可以在这里添加用户友好的错误提示
+      // 例如：无法播放此歌曲，可能由于网络问题或版权限制
     }
   }
 
@@ -143,7 +147,8 @@ class AudioPlayerService extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _position = Duration.zero;
 
-    if (_playerState == PlayerState.playing || _playerState == PlayerState.buffering) {
+    if (_playerState == PlayerState.playing ||
+        _playerState == PlayerState.buffering) {
       await play();
     } else {
       notifyListeners();
@@ -157,7 +162,8 @@ class AudioPlayerService extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _position = Duration.zero;
 
-    if (_playerState == PlayerState.playing || _playerState == PlayerState.buffering) {
+    if (_playerState == PlayerState.playing ||
+        _playerState == PlayerState.buffering) {
       await play();
     } else {
       notifyListeners();
@@ -192,13 +198,43 @@ class AudioPlayerService extends ChangeNotifier {
   Future<void> _setAudioSource(Song song) async {
     try {
       AudioSource audioSource;
-      
+
       if (song.isLocal) {
         // 本地音频文件
         audioSource = AudioSource.file(song.url);
       } else {
-        // 网络音频文件，支持缓存
-        audioSource = AudioSource.uri(Uri.parse(song.url));
+        // 对于酷狗API，需要动态获取播放URL
+        String? audioUrl = song.url;
+
+        // 如果URL为空或为占位符，尝试从API获取
+        if (audioUrl.isEmpty ||
+            audioUrl == 'https://example.com/music/song.mp3') {
+          final apiService = MusicApiService();
+          // 优先使用128kbps版本
+          audioUrl = await apiService.getSongUrl(song.hash128 ?? song.id);
+          if (audioUrl == null || audioUrl.isEmpty) {
+            throw Exception('无法获取歌曲播放URL');
+          }
+        }
+
+        // 验证URL格式
+        if (!audioUrl.startsWith('http://') &&
+            !audioUrl.startsWith('https://')) {
+          throw Exception('无效的音频URL格式: $audioUrl');
+        }
+
+        // 处理HTTP URL - 仅在Web端使用代理解决CORS问题
+        if (kIsWeb && audioUrl.startsWith('http://')) {
+          // Web端使用代理处理HTTP和CORS问题
+          audioUrl = 'https://cors-anywhere.herokuapp.com/$audioUrl';
+        }
+
+        final uri = Uri.tryParse(audioUrl);
+        if (uri == null) {
+          throw Exception('无法解析音频URL: $audioUrl');
+        }
+
+        audioSource = AudioSource.uri(uri);
       }
 
       await _audioPlayer.setAudioSource(audioSource);
@@ -206,12 +242,6 @@ class AudioPlayerService extends ChangeNotifier {
       debugPrint('设置音频源失败: $e');
       rethrow;
     }
-  }
-
-  /// 播放器状态变化监听
-  void _onPlayerStateChanged(PlayerState state) {
-    // just_audio 的 PlayerState 与我们的 PlayerState 不同
-    // 通过 processingState 和 playing 来判断实际状态
   }
 
   /// 播放位置变化监听
@@ -231,7 +261,8 @@ class AudioPlayerService extends ChangeNotifier {
   /// 缓冲位置变化监听
   void _onBufferedPositionChanged(Duration bufferedPosition) {
     if (_duration.inMilliseconds > 0) {
-      _bufferedProgress = bufferedPosition.inMilliseconds / _duration.inMilliseconds;
+      _bufferedProgress =
+          bufferedPosition.inMilliseconds / _duration.inMilliseconds;
       notifyListeners();
     }
   }
@@ -240,7 +271,8 @@ class AudioPlayerService extends ChangeNotifier {
   void _onPlayingChanged(bool playing) {
     if (playing) {
       _playerState = PlayerState.playing;
-    } else if (_playerState == PlayerState.playing || _playerState == PlayerState.buffering) {
+    } else if (_playerState == PlayerState.playing ||
+        _playerState == PlayerState.buffering) {
       _playerState = PlayerState.paused;
     }
     notifyListeners();

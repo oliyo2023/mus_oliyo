@@ -7,6 +7,10 @@ class Song {
   final String url;
   final int? duration;
   final bool isLocal;
+  final String? hash128;
+  final String? hash320;
+  final String? hashHigh;
+  final String? hashFlac;
 
   Song({
     required this.id,
@@ -17,6 +21,10 @@ class Song {
     required this.url,
     this.duration,
     this.isLocal = false,
+    this.hash128,
+    this.hash320,
+    this.hashHigh,
+    this.hashFlac,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -29,6 +37,32 @@ class Song {
       url: json['url'] as String,
       duration: json['duration'] as int?,
       isLocal: json['isLocal'] as bool? ?? false,
+      hash128: json['hash128'] as String?,
+      hash320: json['hash320'] as String?,
+      hashHigh: json['hashHigh'] as String?,
+      hashFlac: json['hashFlac'] as String?,
+    );
+  }
+
+  // 从酷狗API数据创建Song对象
+  factory Song.fromKugouJson(Map<String, dynamic> json) {
+    final authors = json['authors'] as List?;
+    final authorName = authors != null && authors.isNotEmpty
+        ? (authors[0] as Map<String, dynamic>)['author_name'] as String? ?? '未知艺术家'
+        : '未知艺术家';
+
+    return Song(
+      id: json['audio_id']?.toString() ?? json['hash'] as String,
+      title: json['songname'] as String,
+      artist: authorName,
+      album: json['album_name'] as String? ?? '未知专辑',
+      coverArt: json['album_sizable_cover'] as String?,
+      url: '', // 将在获取播放URL时设置
+      duration: json['timelength'] as int?,
+      hash128: json['hash_128'] as String?,
+      hash320: json['hash_320'] as String?,
+      hashHigh: json['hash_high'] as String?,
+      hashFlac: json['hash_flac'] as String?,
     );
   }
 
@@ -42,6 +76,10 @@ class Song {
       'url': url,
       'duration': duration,
       'isLocal': isLocal,
+      'hash128': hash128,
+      'hash320': hash320,
+      'hashHigh': hashHigh,
+      'hashFlac': hashFlac,
     };
   }
 

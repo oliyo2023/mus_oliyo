@@ -1,12 +1,108 @@
 import 'package:flutter/material.dart';
-import '../../models/playlist.dart';
 
-class PlaylistSection extends StatelessWidget {
+import '../../models/playlist.dart';
+import '../../services/music_api_service.dart';
+
+class PlaylistSection extends StatefulWidget {
   const PlaylistSection({super.key});
 
   @override
+  State<PlaylistSection> createState() => _PlaylistSectionState();
+}
+
+class _PlaylistSectionState extends State<PlaylistSection> {
+  late Future<List<Playlist>> _playlistsFuture;
+  late MusicApiService _apiService;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiService = MusicApiService();
+    _loadPlaylists();
+  }
+
+  void _loadPlaylists() {
+    _playlistsFuture = _apiService.getPlaylists();
+  }
+
+  Future<void> _refreshPlaylists() async {
+    setState(() {
+      _loadPlaylists();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // 模拟歌单数据
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '推荐歌单',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                // 查看更多歌单
+              },
+              child: const Text('查看全部'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<Playlist>>(
+          future: _playlistsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            } else if (snapshot.hasError) {
+              return _buildErrorWidget(snapshot.error.toString());
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildMockPlaylists();
+            } else {
+              return _buildPlaylistsGrid(snapshot.data!);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorWidget(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Colors.red,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '加载失败: $error',
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _refreshPlaylists,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockPlaylists() {
+    // 模拟歌单数据作为后备
     final playlists = [
       Playlist(
         id: '1',
@@ -42,126 +138,106 @@ class PlaylistSection extends StatelessWidget {
       ),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              '推荐歌单',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+    return _buildPlaylistsGrid(playlists);
+  }
+
+  Widget _buildPlaylistsGrid(List<Playlist> playlists) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: playlists.length,
+      itemBuilder: (context, index) {
+        final playlist = playlists[index];
+        return GestureDetector(
+          onTap: () {
+            _openPlaylist(context, playlist);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).cardColor,
             ),
-            TextButton(
-              onPressed: () {
-                // 查看更多歌单
-              },
-              child: const Text('查看全部'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: playlists.length,
-          itemBuilder: (context, index) {
-            final playlist = playlists[index];
-            return GestureDetector(
-              onTap: () {
-                _openPlaylist(context, playlist);
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Theme.of(context).cardColor,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12),
-                          ),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              _getPlaylistColor(index).withValues(alpha: 0.8),
-                              _getPlaylistColor(index),
-                            ],
-                          ),
-                        ),
-                        child: playlist.coverArt != null
-                            ? ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                child: Image.network(
-                                  playlist.coverArt!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      Icons.queue_music,
-                                      color: Colors.white,
-                                      size: 48,
-                                    );
-                                  },
-                                ),
-                              )
-                            : const Icon(
-                                Icons.queue_music,
-                                color: Colors.white,
-                                size: 48,
-                              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            playlist.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            playlist.description ?? '',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.withValues(alpha: 0.7),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          _getPlaylistColor(index).withValues(alpha: 0.8),
+                          _getPlaylistColor(index),
                         ],
                       ),
                     ),
-                  ],
+                    child: playlist.coverArt != null
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                            child: Image.network(
+                              playlist.coverArt!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.queue_music,
+                                  color: Colors.white,
+                                  size: 48,
+                                );
+                              },
+                            ),
+                          )
+                        : const Icon(
+                            Icons.queue_music,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playlist.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        playlist.description ?? '',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.withValues(alpha: 0.7),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
