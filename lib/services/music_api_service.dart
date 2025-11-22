@@ -218,6 +218,7 @@ class MusicApiService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        debugPrint('每日推荐API响应: $data');
         if (data['status'] == 1 && data['data'] is List) {
           final songs = data['data'] as List;
           return songs
@@ -228,7 +229,9 @@ class MusicApiService extends ChangeNotifier {
               )
               .toList();
         } else {
-          debugPrint('每日推荐API返回状态异常: ${data['status']}');
+          debugPrint(
+            '每日推荐API返回状态异常: ${data['status']}, data类型: ${data['data']?.runtimeType}, data内容: ${data['data']}',
+          );
           // 返回模拟数据作为后备
           return _getMockDailyRecommend();
         }

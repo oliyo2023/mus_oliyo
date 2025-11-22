@@ -48,15 +48,22 @@ class Song {
   factory Song.fromKugouJson(Map<String, dynamic> json) {
     final authors = json['authors'] as List?;
     final authorName = authors != null && authors.isNotEmpty
-        ? (authors[0] as Map<String, dynamic>)['author_name'] as String? ?? '未知艺术家'
+        ? (authors[0] as Map<String, dynamic>)['author_name'] as String? ??
+              '未知艺术家'
         : '未知艺术家';
+
+    // 处理酷狗图片URL模板，将{size}替换为512
+    String? coverArt = json['album_sizable_cover'] as String?;
+    if (coverArt != null && coverArt.contains('{size}')) {
+      coverArt = coverArt.replaceAll('{size}', '512');
+    }
 
     return Song(
       id: json['audio_id']?.toString() ?? json['hash'] as String,
       title: json['songname'] as String,
       artist: authorName,
       album: json['album_name'] as String? ?? '未知专辑',
-      coverArt: json['album_sizable_cover'] as String?,
+      coverArt: coverArt,
       url: '', // 将在获取播放URL时设置
       duration: json['timelength'] as int?,
       hash128: json['hash_128'] as String?,
@@ -108,9 +115,7 @@ class Song {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is Song &&
-          runtimeType == other.runtimeType &&
-          id == other.id;
+      other is Song && runtimeType == other.runtimeType && id == other.id;
 
   @override
   int get hashCode => id.hashCode;

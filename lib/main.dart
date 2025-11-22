@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/new_songs_screen.dart';
+import 'screens/daily_recommend_screen.dart';
 import 'services/audio_player_service.dart';
 import 'services/music_api_service.dart';
 import 'services/play_history_service.dart';
@@ -59,6 +60,7 @@ class MusicApp extends StatelessWidget {
             '/login': (context) => const LoginScreen(),
             '/home': (context) => const HomeScreen(),
             '/new-songs': (context) => const NewSongsScreen(),
+            '/daily-recommend': (context) => const DailyRecommendScreen(),
           },
         );
       },

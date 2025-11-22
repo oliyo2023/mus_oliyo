@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/song.dart';
 
 /// 音乐缓存服务，负责音频文件的下载和本地缓存管理
@@ -22,14 +23,14 @@ class MusicCacheService extends ChangeNotifier {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       _cacheDirectory = Directory('${appDir.path}/$_cacheDirName');
-      
+
       if (!await _cacheDirectory!.exists()) {
         await _cacheDirectory!.create(recursive: true);
       }
 
       // 加载缓存信息
       await _loadCacheInfo();
-      
+
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
@@ -43,12 +44,12 @@ class MusicCacheService extends ChangeNotifier {
 
     try {
       final files = await _cacheDirectory!.list().toList();
-      
+
       for (var entity in files) {
         if (entity is File) {
           final stat = await entity.stat();
           final fileName = entity.uri.pathSegments.last;
-          
+
           // 从文件名解析歌曲ID
           final songId = _extractSongIdFromFileName(fileName);
           if (songId != null) {
@@ -121,22 +122,26 @@ class MusicCacheService extends ChangeNotifier {
 
     try {
       // 检查网络连接
-      // TODO: 添加网络连接检查
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        debugPrint('无网络连接，无法下载');
+        return null;
+      }
 
       // 检查缓存空间
       await _ensureCacheSpace();
 
       // 下载文件
       final response = await http.get(Uri.parse(song.url));
-      
+
       if (response.statusCode == 200) {
         final fileName = _getCacheFileName(song.id);
         final filePath = '${_cacheDirectory!.path}/$fileName';
         final file = File(filePath);
-        
+
         // 保存文件
         await file.writeAsBytes(response.bodyBytes);
-        
+
         // 更新缓存信息
         final stat = await file.stat();
         _cacheInfo[song.id] = CacheInfo(
@@ -146,7 +151,7 @@ class MusicCacheService extends ChangeNotifier {
           createdAt: stat.changed,
           accessedAt: stat.accessed,
         );
-        
+
         notifyListeners();
         debugPrint('歌曲缓存成功: ${song.title}');
         return filePath;
@@ -180,7 +185,8 @@ class MusicCacheService extends ChangeNotifier {
     // 找到最久未访问的文件
     CacheInfo? oldestInfo;
     for (var info in _cacheInfo.values) {
-      if (oldestInfo == null || info.accessedAt.isBefore(oldestInfo.accessedAt)) {
+      if (oldestInfo == null ||
+          info.accessedAt.isBefore(oldestInfo.accessedAt)) {
         oldestInfo = info;
       }
     }
@@ -263,8 +269,12 @@ class CacheInfo {
   });
 
   String get formattedSize {
-    if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    if (fileSize < 1024) {
+      return '$fileSize B';
+    }
+    if (fileSize < 1024 * 1024) {
+      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    }
     return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
@@ -286,8 +296,12 @@ class CacheStats {
   });
 
   String get formattedTotalSize {
-    if (totalSize < 1024) return '$totalSize B';
-    if (totalSize < 1024 * 1024) return '${(totalSize / 1024).toStringAsFixed(1)} KB';
+    if (totalSize < 1024) {
+      return '$totalSize B';
+    }
+    if (totalSize < 1024 * 1024) {
+      return '${(totalSize / 1024).toStringAsFixed(1)} KB';
+    }
     return '${(totalSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
