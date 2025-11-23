@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/new_songs_screen.dart';
 import 'screens/daily_recommend_screen.dart';
+import 'controllers/daily_recommend_controller.dart';
 import 'services/audio_player_service.dart';
 import 'services/music_api_service.dart';
 import 'services/play_history_service.dart';
@@ -56,6 +57,16 @@ void main() async {
 
   // 连接服务
   audioPlayerService.setHistoryService(playHistoryService);
+
+  // 注册 GetX 依赖
+  Get.put(musicApiService);
+  Get.put(audioPlayerService);
+  Get.lazyPut(
+    () => DailyRecommendController(
+      Get.find<MusicApiService>(),
+      Get.find<AudioPlayerService>(),
+    ),
+  );
 
   runApp(
     MultiProvider(

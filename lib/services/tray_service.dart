@@ -59,44 +59,81 @@ class TrayService with TrayListener {
 
   @override
   void onTrayIconMouseDown() {
+    debugPrint('Tray icon left-clicked');
     // On single click, toggle window visibility
     _toggleWindow();
   }
 
   @override
   void onTrayIconRightMouseDown() {
+    debugPrint('Tray icon right-clicked');
     // Right click shows context menu (handled by tray_manager automatically)
     trayManager.popUpContextMenu();
   }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    switch (menuItem.key) {
-      case 'show_hide':
-        _toggleWindow();
-        break;
-      case 'exit':
-        _exitApp();
-        break;
+    // Debug: print all menu item properties
+    debugPrint('=== Menu Item Clicked ===');
+    debugPrint('  key: ${menuItem.key}');
+    debugPrint('  label: ${menuItem.label}');
+    debugPrint('========================');
+
+    // Match by both key and label for compatibility
+    final itemKey = menuItem.key ?? '';
+    final itemLabel = menuItem.label ?? '';
+
+    // Check key first, then fall back to label matching
+    if (itemKey == 'show_hide' ||
+        itemLabel == '显示/隐藏' ||
+        itemLabel.contains('显示')) {
+      debugPrint('Action: Toggle window');
+      _toggleWindow();
+    } else if (itemKey == 'exit' ||
+        itemLabel == '退出' ||
+        itemLabel.contains('退出')) {
+      debugPrint('Action: Exit application');
+      _exitApp();
+    } else {
+      debugPrint(
+        'Warning: Unknown menu item - key: "$itemKey", label: "$itemLabel"',
+      );
     }
   }
 
   /// Toggle window visibility
   Future<void> _toggleWindow() async {
-    bool isVisible = await windowManager.isVisible();
-    if (isVisible) {
-      await windowManager.hide();
-    } else {
-      await windowManager.show();
-      await windowManager.focus();
+    try {
+      debugPrint('Toggling window visibility...');
+      bool isVisible = await windowManager.isVisible();
+      debugPrint('Window is currently visible: $isVisible');
+
+      if (isVisible) {
+        debugPrint('Hiding window...');
+        await windowManager.hide();
+      } else {
+        debugPrint('Showing window...');
+        await windowManager.show();
+        await windowManager.focus();
+      }
+      debugPrint('Window toggle complete');
+    } catch (e) {
+      debugPrint('Error toggling window: $e');
     }
   }
 
   /// Exit the application completely
   Future<void> _exitApp() async {
-    await dispose();
-    await windowManager.destroy();
-    exit(0);
+    try {
+      debugPrint('Exiting application...');
+      await dispose();
+      await windowManager.destroy();
+      exit(0);
+    } catch (e) {
+      debugPrint('Error exiting app: $e');
+      // Force exit if cleanup fails
+      exit(1);
+    }
   }
 
   /// Show the window from tray
