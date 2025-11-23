@@ -40,10 +40,9 @@ dependencies:
   get: ^4.6.6
 
   # Audio player
-  just_audio: ^0.9.41
-
-  # Audio session (for iOS/Android)
-  audio_session: ^0.1.21
+  audioplayers: ^6.0.0
+  just_audio: ^0.9.40
+  audio_session: ^0.1.14
 
   # File handling
   path_provider: ^2.1.3
@@ -66,6 +65,10 @@ dependencies:
 
   # Image loading
   cached_network_image: ^3.3.1
+
+  # Window management for desktop
+  window_manager: ^0.4.3
+  tray_manager: ^0.2.4
 
 dev_dependencies:
   flutter_test:

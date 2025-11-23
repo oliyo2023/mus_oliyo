@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/player_bar.dart';
+import '../widgets/custom_title_bar.dart';
 import 'pages/home_page.dart';
 import 'pages/search_page.dart';
 import 'pages/library_page.dart';
@@ -25,42 +26,48 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
+          // Custom title bar for desktop platforms
+          const CustomTitleBar(),
           Expanded(
-            child: Obx(() => IndexedStack(
-              index: controller.currentIndex.value,
-              children: pages,
-            )),
+            child: Obx(
+              () => IndexedStack(
+                index: controller.currentIndex.value,
+                children: pages,
+              ),
+            ),
           ),
           const PlayerBar(),
         ],
       ),
-      bottomNavigationBar: Obx(() => BottomNavigationBar(
-        currentIndex: controller.currentIndex.value,
-        onTap: controller.changePage,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: '首页',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search_outlined),
-            activeIcon: Icon(Icons.search),
-            label: '搜索',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.library_music_outlined),
-            activeIcon: Icon(Icons.library_music),
-            label: '音乐库',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
-      )),
+      bottomNavigationBar: Obx(
+        () => BottomNavigationBar(
+          currentIndex: controller.currentIndex.value,
+          onTap: controller.changePage,
+          type: BottomNavigationBarType.fixed,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: '首页',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.search_outlined),
+              activeIcon: Icon(Icons.search),
+              label: '搜索',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.library_music_outlined),
+              activeIcon: Icon(Icons.library_music),
+              label: '音乐库',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: '我的',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

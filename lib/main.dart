@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'dart:io' show Platform;
+import 'package:window_manager/window_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/new_songs_screen.dart';
@@ -9,10 +11,36 @@ import 'services/audio_player_service.dart';
 import 'services/music_api_service.dart';
 import 'services/play_history_service.dart';
 import 'services/user_preferences_service.dart';
+import 'services/tray_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager for desktop platforms
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+
+    const WindowOptions windowOptions = WindowOptions(
+      size: Size(1200, 800),
+      minimumSize: Size(800, 600),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.hidden, // Hide native title bar
+    );
+
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+
+    // Initialize system tray
+    await TrayService().initialize();
+
+    // Prevent window from closing, hide to tray instead
+    await windowManager.setPreventClose(true);
+  }
 
   // 初始化服务
   final playHistoryService = PlayHistoryService();
@@ -42,8 +70,35 @@ void main() async {
   );
 }
 
-class MusicApp extends StatelessWidget {
+class MusicApp extends StatefulWidget {
   const MusicApp({super.key});
+
+  @override
+  State<MusicApp> createState() => _MusicAppState();
+}
+
+class _MusicAppState extends State<MusicApp> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      windowManager.addListener(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      windowManager.removeListener(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    // Hide to tray instead of closing
+    await windowManager.hide();
+  }
 
   @override
   Widget build(BuildContext context) {
