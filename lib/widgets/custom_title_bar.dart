@@ -20,13 +20,19 @@ class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
-    _checkMaximized();
+    // Only use window manager on desktop platforms
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      windowManager.addListener(this);
+      _checkMaximized();
+    }
   }
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
+    // Only use window manager on desktop platforms
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      windowManager.removeListener(this);
+    }
     super.dispose();
   }
 

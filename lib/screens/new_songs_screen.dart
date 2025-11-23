@@ -1,47 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import '../controllers/new_songs_controller.dart';
 import '../models/song.dart';
 import '../services/music_api_service.dart';
 import '../services/audio_player_service.dart';
 
-class NewSongsScreen extends StatefulWidget {
+class NewSongsScreen extends StatelessWidget {
   const NewSongsScreen({super.key});
 
   @override
-  State<NewSongsScreen> createState() => _NewSongsScreenState();
+  Widget build(BuildContext context) {
+    // Initialize controller with dependencies
+    final controller = Get.put(
+      NewSongsController(
+        context.read<MusicApiService>(),
+        context.read<AudioPlayerService>(),
+      ),
+    );
+
+    return _NewSongsView(controller: controller);
+  }
 }
 
-class _NewSongsScreenState extends State<NewSongsScreen> {
-  List<Song> _songs = [];
-  bool _isLoading = true;
-  String? _error;
+class _NewSongsView extends StatelessWidget {
+  final NewSongsController controller;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadNewSongs();
-  }
-
-  Future<void> _loadNewSongs() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final apiService = context.read<MusicApiService>();
-      final songs = await apiService.getTrendingTracks(limit: 50); // 获取更多新歌
-      setState(() {
-        _songs = songs;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
+  const _NewSongsView({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -51,20 +36,13 @@ class _NewSongsScreenState extends State<NewSongsScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadNewSongs),
-        ],
       ),
-      body: _buildBody(),
+      body: Obx(() => _buildBody(context)),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
+  Widget _buildBody(BuildContext context) {
+    if (controller.error.value != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -74,30 +52,41 @@ class _NewSongsScreenState extends State<NewSongsScreen> {
             Text('加载失败', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              _error!,
+              controller.error.value!,
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(onPressed: _loadNewSongs, child: const Text('重试')),
+            ElevatedButton(
+              onPressed: () => controller.forceRefresh(),
+              child: const Text('重试'),
+            ),
           ],
         ),
       );
     }
 
-    if (_songs.isEmpty) {
-      return const Center(child: Text('暂无新歌数据'));
+    if (controller.songs.isEmpty) {
+      // 如果正在加载，显示友好提示；否则显示无数据
+      return Center(
+        child: Text(
+          controller.isLoading.value ? '加载中...' : '暂无新歌数据',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
+        ),
+      );
     }
 
     return RefreshIndicator(
-      onRefresh: _loadNewSongs,
+      onRefresh: () => controller.forceRefresh(),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _songs.length,
+        itemCount: controller.songs.length,
         itemBuilder: (context, index) {
-          final song = _songs[index];
+          final song = controller.songs[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -136,9 +125,9 @@ class _NewSongsScreenState extends State<NewSongsScreen> {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.play_arrow),
-                onPressed: () => _playSong(song),
+                onPressed: () => _playSong(song, context),
               ),
-              onTap: () => _playSong(song),
+              onTap: () => _playSong(song, context),
             ),
           );
         },
@@ -146,51 +135,34 @@ class _NewSongsScreenState extends State<NewSongsScreen> {
     );
   }
 
-  Future<void> _playSong(Song song) async {
-    final audioPlayerService = context.read<AudioPlayerService>();
-    final apiService = context.read<MusicApiService>();
-
-    // 如果歌曲已有URL，直接播放
-    if (song.url.isNotEmpty) {
-      audioPlayerService.setPlaylist([song]);
-      audioPlayerService.playSong(song);
-      return;
-    }
-
-    // 显示加载提示
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
+  Future<void> _playSong(Song song, BuildContext context) async {
     try {
-      // 异步获取URL
-      final url = await apiService.getSongUrl(song.hash128 ?? song.id);
-
-      // 关闭加载提示
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      // 如果歌曲已有URL，直接播放
+      if (song.url.isNotEmpty) {
+        await controller.playSong(song);
+        return;
       }
 
-      if (url != null && url.isNotEmpty) {
-        final updatedSong = song.copyWith(url: url);
-        audioPlayerService.setPlaylist([updatedSong]);
-        audioPlayerService.playSong(updatedSong);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法获取播放地址，可能是VIP歌曲或版权限制')),
-          );
-        }
+      // 显示加载提示
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await controller.playSong(song);
+
+      // 关闭加载提示
+      if (context.mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
       }
     } catch (e) {
       // 关闭加载提示
-      if (mounted && Navigator.canPop(context)) {
+      if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('播放失败: $e')));

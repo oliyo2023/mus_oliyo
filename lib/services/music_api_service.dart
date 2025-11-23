@@ -186,17 +186,33 @@ class MusicApiService extends ChangeNotifier {
         headers: _getHeaders(),
       );
 
+      debugPrint('搜索API响应: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['status'] == 0 && data['data'] is List) {
-          final songs = data['data'] as List;
+        debugPrint('搜索API status: ${data['status']}');
+
+        // 酷狗API返回格式: status = 1 表示成功, 数据在 data.data.lists 中
+        if (data['status'] == 1 &&
+            data['data'] is Map &&
+            data['data']['lists'] is List) {
+          final songs = data['data']['lists'] as List;
+          debugPrint('搜索到 ${songs.length} 首歌曲');
+
           return songs
+              .take(limit)
               .map(
                 (songJson) =>
                     Song.fromKugouJson(songJson as Map<String, dynamic>),
               )
               .toList();
         } else {
+          debugPrint(
+            '搜索API返回数据格式不正确: '
+            'status=${data['status']}, '
+            'data类型=${data['data']?.runtimeType}, '
+            'lists存在=${data['data']?['lists'] != null}',
+          );
           return [];
         }
       } else {
@@ -218,10 +234,16 @@ class MusicApiService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        debugPrint('每日推荐API响应: $data');
-        if (data['status'] == 1 && data['data'] is List) {
-          final songs = data['data'] as List;
-          return songs
+        debugPrint('每日推荐API响应状态: ${data['status']}');
+
+        // 检查 status == 1 并且 data.data.song_list 存在
+        if (data['status'] == 1 &&
+            data['data'] is Map &&
+            data['data']['song_list'] is List) {
+          final songList = data['data']['song_list'] as List;
+          debugPrint('🎵 成功解析每日推荐，共 ${songList.length} 首歌');
+
+          return songList
               .take(limit)
               .map(
                 (songJson) =>
@@ -230,18 +252,20 @@ class MusicApiService extends ChangeNotifier {
               .toList();
         } else {
           debugPrint(
-            '每日推荐API返回状态异常: ${data['status']}, data类型: ${data['data']?.runtimeType}, data内容: ${data['data']}',
+            '❌ 每日推荐API数据格式异常: status=${data['status']}, '
+            'data类型=${data['data']?.runtimeType}, '
+            'song_list存在=${data['data']?['song_list'] != null}',
           );
           // 返回模拟数据作为后备
           return _getMockDailyRecommend();
         }
       } else {
-        debugPrint('每日推荐API请求失败: HTTP ${response.statusCode}');
+        debugPrint('❌ 每日推荐API请求失败: HTTP ${response.statusCode}');
         // 返回模拟数据作为后备
         return _getMockDailyRecommend();
       }
     } catch (e) {
-      debugPrint('获取每日推荐失败: $e');
+      debugPrint('❌ 获取每日推荐失败: $e');
       // 返回模拟数据作为后备
       return _getMockDailyRecommend();
     }
