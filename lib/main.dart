@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -49,7 +50,7 @@ class MusicApp extends StatelessWidget {
     return Selector<UserPreferencesService, ThemeMode>(
       selector: (context, service) => service.themeMode,
       builder: (context, themeMode, child) {
-        return MaterialApp(
+        return GetMaterialApp(
           title: '音乐播放器',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
